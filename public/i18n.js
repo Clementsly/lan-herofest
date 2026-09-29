@@ -253,9 +253,10 @@ const I18N = {
  }
 };
 const LOCALES = { fr:'fr-FR', en:'en-GB', de:'de-DE', it:'it-IT' };
-let LANG = localStorage.getItem('lang') || ((navigator.language||'fr').slice(0,2));
-if (!I18N[LANG]) LANG = 'en';
-function L(k, v) { let s = (I18N[LANG][k] ?? I18N.fr[k] ?? k); if (v) for (const x in v) s = s.replace('{'+x+'}', v[x]); return s; }
+const LANG_ORDER = ['de', 'en', 'fr', 'it']; // DE = langue principale
+let LANG = localStorage.getItem('lang') || 'de';
+if (!I18N[LANG]) LANG = 'de';
+function L(k, v) { let s = (I18N[LANG][k] ?? I18N.de[k] ?? I18N.en[k] ?? k); if (v) for (const x in v) s = s.replace('{'+x+'}', v[x]); return s; }
 const fmtTime = ts => new Date(ts).toLocaleTimeString(LOCALES[LANG], { hour:'2-digit', minute:'2-digit' });
 function applyI18n() {
   document.documentElement.lang = LANG;
@@ -263,7 +264,7 @@ function applyI18n() {
   document.querySelectorAll('[data-i18n-ph]').forEach(e => e.placeholder = L(e.dataset.i18nPh));
   document.querySelectorAll('[data-i18n-title]').forEach(e => e.title = L(e.dataset.i18nTitle));
   const sw = document.getElementById('lang');
-  if (sw) sw.innerHTML = Object.keys(I18N).map(l => `<button class="${l===LANG?'on':''}" onclick="setLang('${l}')">${l.toUpperCase()}</button>`).join('');
+  if (sw) sw.innerHTML = LANG_ORDER.map(l => `<button class="${l===LANG?'on':''}" onclick="setLang('${l}')">${l.toUpperCase()}</button>`).join('');
 }
 function setLang(l) { LANG = l; localStorage.setItem('lang', l); applyI18n(); if (window.onLangChange) onLangChange(); }
 document.addEventListener('DOMContentLoaded', applyI18n);
