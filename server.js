@@ -211,6 +211,20 @@ app.post('/api/admin/duo', staffGate, needLead, (req, res) => {
   res.json({ ok: true, codes: req.body.accept ? { [t.user.name]: accessCode(t.user.name), [t.duo.mate]: accessCode(t.duo.mate) } : null });
 });
 
+// Encart Discord (infos du serveur, mises en cache 5 min)
+const INVITE = E.DISCORD_INVITE || 'CCJduuFEFT';
+let inviteCache = { at: 0, data: null };
+app.get('/api/discord-invite', async (req, res) => {
+  if (Date.now() - inviteCache.at > 300000) {
+    try {
+      const d = await (await fetch(`https://discord.com/api/v10/invites/${INVITE}?with_counts=true`)).json();
+      if (d.guild) inviteCache = { at: Date.now(), data: { name: d.guild.name, members: d.approximate_member_count, online: d.approximate_presence_count,
+        icon: d.guild.icon ? `https://cdn.discordapp.com/icons/${d.guild.id}/${d.guild.icon}.png?size=128` : null } };
+    } catch {}
+  }
+  res.json({ url: 'https://discord.gg/' + INVITE, ...(inviteCache.data || { name: 'HeroFest Fortnite 2026' }) });
+});
+
 // Annonces à tous les joueurs
 app.post('/api/admin/announce', staffGate, needLead, (req, res) => {
   const text = String(req.body.text || '').trim().slice(0, 1000);

@@ -1,5 +1,9 @@
 const I18N = {
  fr: {
+  dcTitle:"Rejoins le Discord si tu le souhaites",
+  dcMembers:"{n} membres",
+  dcOnline:"{n} en ligne",
+  dcJoin:"Rejoindre",
   annTitle:"Annonces",
   annAdminTitle:"Envoyer une annonce",
   annPh:"Message à envoyer à tous les joueurs…",
@@ -59,6 +63,10 @@ const I18N = {
   active:'Dispatch ACTIF depuis {t} – clé visible par les Confirmed Players :', inactive:'Aucun dispatch en cours – la clé est masquée.', noMsg:'Aucun message.'
  },
  en: {
+  dcTitle:"Join the Discord if you want",
+  dcMembers:"{n} members",
+  dcOnline:"{n} online",
+  dcJoin:"Join",
   annTitle:"Announcements",
   annAdminTitle:"Send an announcement",
   annPh:"Message to send to all players…",
@@ -118,6 +126,10 @@ const I18N = {
   active:'Dispatch ACTIVE since {t} – key visible to Confirmed Players:', inactive:'No dispatch running – the key is hidden.', noMsg:'No messages.'
  },
  de: {
+  dcTitle:"Tritt dem Discord bei, wenn du möchtest",
+  dcMembers:"{n} Mitglieder",
+  dcOnline:"{n} online",
+  dcJoin:"Beitreten",
   annTitle:"Ankündigungen",
   annAdminTitle:"Ankündigung senden",
   annPh:"Nachricht an alle Spieler…",
@@ -177,6 +189,10 @@ const I18N = {
   active:'Dispatch AKTIV seit {t} – Key sichtbar für Confirmed Players:', inactive:'Kein Dispatch aktiv – der Key ist verborgen.', noMsg:'Keine Nachrichten.'
  },
  it: {
+  dcTitle:"Unisciti al Discord se vuoi",
+  dcMembers:"{n} membri",
+  dcOnline:"{n} online",
+  dcJoin:"Unisciti",
   annTitle:"Annunci",
   annAdminTitle:"Invia un annuncio",
   annPh:"Messaggio da inviare a tutti i giocatori…",

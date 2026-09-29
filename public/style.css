@@ -43,3 +43,17 @@ input,textarea{font:inherit;width:100%;padding:10px 12px;border-radius:10px;bord
 .opts{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0;font-size:14px;color:#cfd6ff}.opts label{display:flex;gap:6px;align-items:center;cursor:pointer}
 .opts input{width:auto}
 textarea{resize:vertical;min-height:70px}
+
+.dc-wrap h2{margin-bottom:12px}
+.dc{display:flex;align-items:center;gap:16px;background:#2b2d31;border:1px solid #ffffff14;border-radius:10px;padding:16px 18px}
+.dc img{width:56px;height:56px;border-radius:16px;flex:none;background:#5865f2}
+.dc .ph{width:56px;height:56px;border-radius:16px;flex:none;background:#5865f2;display:grid;place-items:center;font-weight:800;font-size:20px}
+.dc-info{flex:1;min-width:0}
+.dc-name{font-weight:700;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dc-stats{display:flex;gap:14px;font-size:14px;color:#b5bac1;margin-top:4px;flex-wrap:wrap}
+.dc-stats .dot{width:8px;height:8px;margin-right:6px}.dc-stats .grey{background:#80848e}
+.dc-join{background:#248046;color:#fff;display:flex;align-items:center;gap:8px;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:700;flex:none}
+.dc-join:hover{background:#1a6334}
+.dc-join svg{width:22px;height:22px;fill:#fff}
+@media(max-width:520px){.dc{flex-wrap:wrap}.dc-join{width:100%;justify-content:center}}
+@media(max-width:520px){#login .row{flex-wrap:wrap}#login .row input{flex:1 1 100%;max-width:none!important}#login .row button{flex:1}}
