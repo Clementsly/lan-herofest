@@ -8,8 +8,11 @@
   <a href="/auth/discord"><button class="btn-discord" data-i18n="discordLogin"></button></a>
   <p class="muted" style="margin:22px 0 10px" data-i18n="noDiscord"></p>
   <div class="row" style="max-width:420px;margin:auto"><input id="gname" data-i18n-ph="nickname"><button class="btn-ghost" onclick="guest()" data-i18n="support"></button></div>
+  <p class="muted" style="margin:22px 0 10px" data-i18n="haveCode"></p>
+  <div class="row" style="max-width:520px;margin:auto"><input id="cname" data-i18n-ph="nickname"><input id="ccode" data-i18n-ph="codePh" style="max-width:150px;text-transform:uppercase" onkeydown="if(event.key==='Enter')codeLogin()"><button class="btn-ghost" onclick="codeLogin()" data-i18n="codeLogin"></button></div>
   <p id="err" class="muted" style="color:#ff9b9e;margin-top:10px"></p>
  </section>
+ <section id="invite" class="card hidden"><h2 data-i18n="inviteTitle"></h2><div id="invitebox"></div></section>
  <section id="keycard" class="card hidden"><h2 data-i18n="keyTitle"></h2><div id="keybox"></div></section>
  <section id="noaccess" class="card hidden"><h2 data-i18n="limited"></h2>
   <p class="muted"><span data-i18n="limitedText"></span> <span id="joinhint"></span></p></section>
@@ -23,26 +26,47 @@ const $=id=>document.getElementById(id), esc=s=>String(s).replace(/[&<>"']/g,c=>
 let lastSig='', S=null;
 const errKey={auth:'errAuth',token:'errDiscord',discord:'errDiscord'}, qerr=new URLSearchParams(location.search).get('err');
 async function guest(){const r=await fetch('/auth/guest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('gname').value})});if(r.ok)load();}
+async function codeLogin(){const r=await fetch('/auth/code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('cname').value,code:$('ccode').value})});
+ if(r.ok){load();}else $('err').textContent=L('badCode');}
+async function sendDuo(){const mate=$('mate').value.trim();if(!mate)return;await fetch('/api/duo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mate})});inviteSig='';load();}
 async function logout(){await fetch('/auth/logout',{method:'POST'});location.href='/';}
 async function send(){const text=$('txt').value.trim();if(!text)return;$('txt').value='';
  await fetch('/api/message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});load();}
-function copyKey(b){navigator.clipboard.writeText(S.dispatch.key);b.textContent=L('copied');}
+async function copyKey(b){const k=S.dispatch.key;let ok=false;
+ try{await navigator.clipboard.writeText(k);ok=true;}catch{try{const ta=document.createElement('textarea');ta.value=k;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();ok=document.execCommand('copy');ta.remove();}catch{}}
+ b.textContent=ok?L('copied'):L('copyFail');setTimeout(()=>{b.textContent=L('copyKey')},2000);}
+const MASK='•'.repeat(10);
+function reveal(on){const k=$('keyval');if(k){k.textContent=on?S.dispatch.key:MASK;k.classList.toggle('masked',!on);}}
+let keySig='',inviteSig='';
 function render(){
- if(!S){$('login').classList.remove('hidden');['keycard','noaccess','support'].forEach(i=>$(i).classList.add('hidden'));$('who').innerHTML='';
+ if(!S){$('login').classList.remove('hidden');['keycard','noaccess','support','invite'].forEach(i=>$(i).classList.add('hidden'));$('who').innerHTML='';
   $('err').textContent=qerr?L(errKey[qerr]||'errDiscord'):'';return;}
  const u=S.user;
  $('login').classList.add('hidden');$('support').classList.remove('hidden');
  $('who').innerHTML=`<div class="user">${u.avatar?`<img src="${u.avatar}" alt="">`:''}<b>${esc(u.name)}${u.guest?' ('+L('guest')+')':''}</b><span class="badge ${u.confirmed?'':'no'}">${u.confirmed?L('confirmedBadge'):L('supportOnly')}</span>${u.staff?`<a href="/admin"><button class="btn">${L('staffArea')}</button></a>`:''}<button class="btn-ghost" onclick="logout()">${L('logout')}</button></div>`;
- $('keycard').classList.toggle('hidden',!u.confirmed);$('noaccess').classList.toggle('hidden',u.confirmed);
+ $('keycard').classList.toggle('hidden',!u.confirmed);$('noaccess').classList.toggle('hidden',u.confirmed||u.guest);
  $('joinhint').innerHTML=u.id[0]==='d'&&!u.inGuild?L('notInGuild'):'';
- if(u.confirmed) $('keybox').innerHTML=S.dispatch.active
-  ?`<p class="muted center" style="margin-bottom:10px"><span class="dot on"></span>${L('dispatchLive')}</p><div class="key">${esc(S.dispatch.key)}</div><div class="center" style="margin-top:12px"><button class="btn" onclick="copyKey(this)">${L('copyKey')}</button></div>`
-  :`<div class="wait"><span class="dot"></span>${L('noKey')}</div>`;
+ const ks=LANG+u.confirmed+S.dispatch.active+(S.dispatch.key||'');
+ if(u.confirmed&&ks!==keySig){keySig=ks;$('keybox').innerHTML=S.dispatch.active
+  ?`<p class="muted center" style="margin-bottom:10px"><span class="dot on"></span>${L('dispatchLive')}</p><div id="keyval" class="key masked">${MASK}</div>
+   <div class="btns"><button class="btn" onclick="copyKey(this)">${L('copyKey')}</button><button class="btn-ghost" onmousedown="reveal(1)" onmouseup="reveal(0)" onmouseleave="reveal(0)" ontouchstart="reveal(1);event.preventDefault()" ontouchend="reveal(0)">${L('hold')}</button></div>
+   <p class="note">${L('streamerSafe')}</p>`
+  :`<div class="wait"><span class="dot"></span>${L('noKey')}</div>`;}
+ if(!u.confirmed) keySig='';
+ // Accès sans Discord (duo)
+ const d=S.duo, showInv=u.guest&&(S.invited||d);
+ $('invite').classList.toggle('hidden',!showInv);
+ const is=LANG+JSON.stringify(d)+S.invited;
+ if(showInv&&is!==inviteSig){inviteSig=is;const form=`<div class="row" style="max-width:460px"><input id="mate" data-i18n-ph="matePh" placeholder="${L('matePh')}" onkeydown="if(event.key==='Enter')sendDuo()"><button class="btn" onclick="sendDuo()">${L('sendDuo')}</button></div>`;
+  $('invitebox').innerHTML=!d?`<p class="muted" style="margin-bottom:12px">${L('inviteText')}</p>${form}`
+   :d.status==='pending'?`<p class="muted"><span class="dot"></span>${L('duoPending',{m:esc(d.mate)})}</p>`
+   :d.status==='refused'?`<p class="muted" style="margin-bottom:12px">${L('duoRefused',{m:esc(d.mate)})}</p>${form}`
+   :`<p style="margin-bottom:10px"><span class="dot on"></span>${L('duoAccepted',{m:esc(d.mate)})}</p><p class="muted">${L('myCode')}</p><div class="codebox">${d.myCode}</div><p class="muted">${L('mateCode',{m:esc(d.mate)})}</p><div class="codebox">${d.mateCode}</div>`;}
  const sig=LANG+S.messages.length; if(sig!==lastSig){lastSig=sig;const c=$('chat');
   c.innerHTML=S.messages.length?S.messages.map(m=>`<div class="msg ${m.from==='user'?'me':'them'}">${esc(m.text)}<small>${m.from==='admin'?L('admin')+(m.by?' ('+esc(m.by)+')':'')+' · ':''}${fmtTime(m.at)}</small></div>`).join(''):`<p class="muted center">${L('emptyChat')}</p>`;
   c.scrollTop=c.scrollHeight;}
 }
 async function load(){const r=await fetch('/api/state');S=r.status===401?null:await r.json();render();}
-window.onLangChange=()=>{lastSig='';render();};
+window.onLangChange=()=>{lastSig='';keySig='';inviteSig='';render();};
 load();setInterval(load,2000);
 </script></body></html>

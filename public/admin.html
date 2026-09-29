@@ -7,12 +7,13 @@
   <a href="/auth/discord?admin=1"><button class="btn-discord" data-i18n="discordLogin"></button></a>
   <p id="err" class="muted" style="color:#ff9b9e;margin-top:12px"></p></section>
  <div id="panel" class="hidden" style="display:grid;gap:20px">
+  <section id="rcard" class="card"><h2><span data-i18n="duoReqs"></span> <span id="rcount" class="count hidden"></span></h2><div id="reqs"></div></section>
   <section id="dcard" class="card"><h2 data-i18n="dispatchTitle"></h2>
    <p id="status" class="muted" style="margin-bottom:12px"></p>
    <div class="row"><input id="key" data-i18n-ph="keyPh"><button class="btn-green" onclick="start()" data-i18n="start"></button><button class="btn-red" onclick="stop()" data-i18n="stop"></button></div></section>
   <section class="card"><h2 data-i18n="playerMsgs"></h2>
    <div class="grid2"><div id="threads"></div>
-    <div><div id="chat" class="chat"></div>
+    <div><div id="thead" class="thead"></div><div id="chat" class="chat"></div>
      <div class="row"><input id="txt" data-i18n-ph="replyPh" onkeydown="if(event.key==='Enter')reply()"><button class="btn" onclick="reply()" data-i18n="send"></button><button id="delbtn" class="btn-ghost" data-i18n-title="delTitle" onclick="del()" data-i18n="del"></button></div></div></div></section>
  </div>
 </main>
@@ -26,6 +27,12 @@ async function start(){const key=$('key').value.trim();if(!key)return alert(L('e
 async function stop(){await post('/api/admin/dispatch/stop');load();}
 async function reply(){const text=$('txt').value.trim();if(!sel||!text)return;$('txt').value='';await post('/api/admin/reply',{id:sel,text});load();}
 async function del(){if(sel&&confirm(L('confirmDel'))){await post('/api/admin/delete',{id:sel});sel=null;lastSig='';load();}}
+async function invite(){if(sel){await post('/api/admin/invite',{id:sel});load();}}
+async function duo(id,accept){await post('/api/admin/duo',{id,accept});load();}
+function beep(){try{const a=new (window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=880;g.gain.value=.15;o.start();o.stop(a.currentTime+.18);}catch{}}
+function notify(txt){beep();try{if(Notification.permission==='granted'&&document.hidden)new Notification('HeroFest LAN',{body:txt});}catch{}}
+document.addEventListener('click',()=>{try{if(Notification.permission==='default')Notification.requestPermission();}catch{}},{once:true});
+let prevPending=null,prevUnread=null,reqSig='',headSig='';
 function pick(id){sel=id;lastSig='';post('/api/admin/read',{id});load();}
 function render(){
  if(!S){$('login').classList.remove('hidden');$('panel').classList.add('hidden');$('who').innerHTML='';
@@ -36,7 +43,19 @@ function render(){
  $('dcard').classList.toggle('hidden',!me.lead);$('delbtn').classList.toggle('hidden',!me.lead);
  if(d) $('status').innerHTML=d.active?`<span class="dot on"></span>${L('active',{t:fmtTime(d.startedAt)})} <b style="color:#f5c518">${esc(d.key)}</b>`:`<span class="dot"></span>${L('inactive')}`;
  $('threads').innerHTML=S.threads.length?S.threads.map(x=>`<div class="thread ${x.id===sel?'sel':''}" onclick="pick('${x.id}')"><span>${uname(x.user)}${x.user.confirmed?' ✓':''}</span>${x.unread&&x.id!==sel?`<span class="count">${x.unread}</span>`:''}</div>`).join(''):`<p class="muted">${L('noMsg')}</p>`;
+ // Demandes de duo
+ $('rcard').classList.toggle('hidden',!me.lead);
+ const pend=S.threads.filter(x=>x.duo&&x.duo.status==='pending'), done=S.threads.filter(x=>x.duo&&x.duo.status==='accepted');
+ $('rcount').textContent=pend.length;$('rcount').classList.toggle('hidden',!pend.length);
+ const rs=LANG+JSON.stringify(pend.map(x=>[x.id,x.duo]))+done.length;
+ if(me.lead&&rs!==reqSig){reqSig=rs;
+  $('reqs').innerHTML=(pend.length?pend.map(x=>`<div class="req"><b>${L('duoWith',{a:esc(x.user.name),b:esc(x.duo.mate)})}</b><div class="row"><button class="btn-green" onclick="duo('${x.id}',true)">${L('accept')}</button><button class="btn-red" onclick="duo('${x.id}',false)">${L('refuse')}</button></div></div>`).join(''):`<p class="muted">${L('noReqs')}</p>`);}
  const th=S.threads.find(x=>x.id===sel), c=$('chat');
+ const hs=LANG+(th?th.id+th.invited+JSON.stringify(th.duo):'')+me.lead;
+ if(hs!==headSig){headSig=hs;$('thead').innerHTML=!th?'':`<b>${uname(th.user)}</b>`+(!th.user.guest||!me.lead?'':
+   th.duo&&th.duo.status==='accepted'?`<span class="pill">✓ ${L('statusAccepted')} · ${L('codesTitle')} <b>${esc(th.user.name)}</b> <code>${th.duo.codes[0]}</code> · <b>${esc(th.duo.mate)}</b> <code>${th.duo.codes[1]}</code></span>`
+   :th.duo&&th.duo.status==='refused'&&!th.invited?'':th.duo&&th.duo.status==='pending'?`<span class="pill">${L('duoWith',{a:esc(th.user.name),b:esc(th.duo.mate)})}</span>`
+   :th.invited?`<span class="pill">${L('accessGiven')}</span>`:`<button class="btn-green" onclick="invite()">${L('giveAccess')}</button>`);}
  if(!th){if(lastSig!==LANG){lastSig=LANG;c.innerHTML=`<p class="muted center">${L('pickThread')}</p>`;}return;}
  const sig=LANG+sel+th.messages.length; if(sig!==lastSig){lastSig=sig;
   c.innerHTML=th.messages.map(m=>`<div class="msg ${m.from==='admin'?'me':'them'}">${esc(m.text)}<small>${m.from==='user'?uname(th.user)+' · ':(m.by?esc(m.by)+' · ':'')}${fmtTime(m.at)}</small></div>`).join('');c.scrollTop=c.scrollHeight;}
@@ -49,7 +68,11 @@ async function load(){
  const unread=S.threads.reduce((a,x)=>a+(x.id===sel?0:x.unread),0);
  unreadTotal=unread; document.title=(unread?`(${unread}) `:'')+'Admin – HeroFest LAN';
  render();
+ if(S.me.lead&&prevPending!==null&&countPend(S)>prevPending) notify(L('notifDuo'));
+ if(prevUnread!==null&&unread>prevUnread) notify(L('notifMsg'));
+ prevPending=S.me.lead?countPend(S):0;prevUnread=unread;
 }
-window.onLangChange=()=>{lastSig='';render();};
+const countPend=S=>S.threads.filter(x=>x.duo&&x.duo.status==='pending').length;
+window.onLangChange=()=>{lastSig='';reqSig='';headSig='';render();};
 load();setInterval(load,2000);
 </script></body></html>

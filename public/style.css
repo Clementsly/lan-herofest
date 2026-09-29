@@ -27,3 +27,10 @@ input,textarea{font:inherit;width:100%;padding:10px 12px;border-radius:10px;bord
 #lang{display:flex;gap:4px}#lang button{padding:6px 9px;font-size:12px;background:#ffffff14;color:#cfd6ff;border-radius:8px}
 #lang button.on{background:#f5c518;color:#111}
 @media(max-width:600px){header{flex-direction:column;gap:10px}}
+.key.masked{color:#f5c51899;letter-spacing:10px}
+.btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+.note{font-size:13px;color:#9aa6d6;text-align:center;margin-top:10px}
+.codebox{font-family:ui-monospace,monospace;font-size:22px;font-weight:800;color:#f5c518;background:#0005;border-radius:8px;padding:6px 12px;display:inline-block;margin:6px 0 12px;user-select:all}
+.req{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px;border-radius:10px;background:#f5c51814;border:1px solid #f5c51844;margin-bottom:8px;flex-wrap:wrap}
+.thead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;min-height:38px;flex-wrap:wrap}
+.pill{font-size:12px;padding:4px 10px;border-radius:20px;background:#ffffff14;color:#cfd6ff}
