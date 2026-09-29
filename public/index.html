@@ -12,6 +12,7 @@
   <div class="row" style="max-width:520px;margin:auto"><input id="cname" data-i18n-ph="nickname"><input id="ccode" data-i18n-ph="codePh" style="max-width:150px;text-transform:uppercase" onkeydown="if(event.key==='Enter')codeLogin()"><button class="btn-ghost" onclick="codeLogin()" data-i18n="codeLogin"></button></div>
   <p id="err" class="muted" style="color:#ff9b9e;margin-top:10px"></p>
  </section>
+ <section id="anncard" class="card hidden"><h2 data-i18n="annTitle"></h2><div id="anns"></div></section>
  <section id="invite" class="card hidden"><h2 data-i18n="inviteTitle"></h2><div id="invitebox"></div></section>
  <section id="keycard" class="card hidden"><h2 data-i18n="keyTitle"></h2><div id="keybox"></div></section>
  <section id="noaccess" class="card hidden"><h2 data-i18n="limited"></h2>
@@ -37,9 +38,10 @@ async function copyKey(b){const k=S.dispatch.key;let ok=false;
  b.textContent=ok?L('copied'):L('copyFail');setTimeout(()=>{b.textContent=L('copyKey')},2000);}
 const MASK='•'.repeat(10);
 function reveal(on){const k=$('keyval');if(k){k.textContent=on?S.dispatch.key:MASK;k.classList.toggle('masked',!on);}}
-let keySig='',inviteSig='';
+let keySig='',inviteSig='',annSig='',seenAnn=null;
+function beep(){try{const a=new (window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=660;g.gain.value=.12;o.start();o.stop(a.currentTime+.2);}catch{}}
 function render(){
- if(!S){$('login').classList.remove('hidden');['keycard','noaccess','support','invite'].forEach(i=>$(i).classList.add('hidden'));$('who').innerHTML='';
+ if(!S){$('login').classList.remove('hidden');['keycard','noaccess','support','invite','anncard'].forEach(i=>$(i).classList.add('hidden'));$('who').innerHTML='';
   $('err').textContent=qerr?L(errKey[qerr]||'errDiscord'):'';return;}
  const u=S.user;
  $('login').classList.add('hidden');$('support').classList.remove('hidden');
@@ -54,6 +56,14 @@ function render(){
    <p class="note">${L('streamerSafe')}</p>`
   :`<div class="wait"><span class="dot"></span>${L('noKey')}</div>`;}
  if(!u.confirmed) keySig='';
+ // Annonces
+ const an=S.announcements||[]; $('anncard').classList.toggle('hidden',!an.length);
+ const as=LANG+an.map(a=>a.id).join();
+ if(as!==annSig){annSig=as;const known=seenAnn||new Set(an.map(a=>a.id));
+  const fresh=an.filter(a=>!known.has(a.id));
+  $('anns').innerHTML=an.map(a=>`<div class="ann ${a.important?'imp':''} ${fresh.includes(a)?'new':''}">${esc(a.text)}<small>${esc(a.by)} · ${fmtTime(a.at)}</small></div>`).join('');
+  if(fresh.length){beep();document.title='('+L('annNew')+') HeroFest Fortnite 2026';setTimeout(()=>document.title='HeroFest Fortnite 2026 – LAN',6000);}
+  seenAnn=new Set(an.map(a=>a.id));}
  // Accès sans Discord (duo)
  const d=S.duo, showInv=u.guest&&(S.invited||d);
  $('invite').classList.toggle('hidden',!showInv);
@@ -68,6 +78,6 @@ function render(){
   c.scrollTop=c.scrollHeight;}
 }
 async function load(){const r=await fetch('/api/state');S=r.status===401?null:await r.json();render();}
-window.onLangChange=()=>{lastSig='';keySig='';inviteSig='';render();};
+window.onLangChange=()=>{lastSig='';keySig='';inviteSig='';annSig='';render();};
 load();setInterval(load,2000);
 </script></body></html>

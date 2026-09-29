@@ -14,8 +14,9 @@ const SECRET = E.SESSION_SECRET || 'dev';
 const ROLE_REFRESH_MS = 15000; // re-vérifie les rôles Discord toutes les 15 s
 const DATA = path.join(__dirname, 'data.json');
 
-let db = { dispatch: { active: false, key: '', startedAt: null }, threads: {} };
+let db = { dispatch: { active: false, key: '', startedAt: null }, threads: {}, announcements: [] };
 try { db = JSON.parse(fs.readFileSync(DATA)); } catch {}
+db.announcements ||= [];
 const save = () => fs.writeFile(DATA, JSON.stringify(db), () => {});
 
 // Code d'accès sans Discord : dérivé du pseudo + secret (survit aux redémarrages du serveur)
@@ -146,6 +147,7 @@ app.get('/api/state', needUser, refreshUser, (req, res) => {
   res.json({ user: u,
     dispatch: u.confirmed ? db.dispatch : { active: db.dispatch.active, key: null },
     invited: !!(t && t.invited), duo,
+    announcements: db.announcements.filter(a => a.audience === 'all' || u.confirmed).slice(-10).reverse(),
     messages: t ? t.messages : [] });
 });
 const thread = u => {
@@ -177,7 +179,7 @@ app.get('/api/admin/state', staffGate, (req, res) => {
   const threads = Object.entries(db.threads).map(([id, t]) => ({ id, user: t.user, messages: t.messages,
     unread: t.unreadAdmin, last: t.last, invited: !!t.invited,
     duo: t.duo ? { ...t.duo, codes: t.duo.status === 'accepted' ? [accessCode(t.user.name), accessCode(t.duo.mate)] : null } : null })).sort((a, b) => b.last - a.last);
-  res.json({ me: u, dispatch: u.lead ? db.dispatch : null, threads });
+  res.json({ me: u, dispatch: u.lead ? db.dispatch : null, threads, announcements: db.announcements.slice(-20).reverse() });
 });
 app.post('/api/admin/dispatch/start', staffGate, needLead, (req, res) => {
   const key = String(req.body.key || '').trim().slice(0, 64);
@@ -207,6 +209,18 @@ app.post('/api/admin/duo', staffGate, needLead, (req, res) => {
   t.duo.status = req.body.accept ? 'accepted' : 'refused'; t.duo.by = req.session.user.name;
   t.unreadUser++; t.last = Date.now(); save();
   res.json({ ok: true, codes: req.body.accept ? { [t.user.name]: accessCode(t.user.name), [t.duo.mate]: accessCode(t.duo.mate) } : null });
+});
+
+// Annonces à tous les joueurs
+app.post('/api/admin/announce', staffGate, needLead, (req, res) => {
+  const text = String(req.body.text || '').trim().slice(0, 1000);
+  if (!text) return res.status(400).json({ error: 'empty' });
+  db.announcements.push({ id: crypto.randomBytes(5).toString('hex'), text, by: req.session.user.name,
+    audience: req.body.audience === 'confirmed' ? 'confirmed' : 'all', important: !!req.body.important, at: Date.now() });
+  db.announcements = db.announcements.slice(-50); save(); res.json({ ok: true });
+});
+app.post('/api/admin/announce/delete', staffGate, needLead, (req, res) => {
+  db.announcements = db.announcements.filter(a => a.id !== req.body.id); save(); res.json({ ok: true });
 });
 
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));

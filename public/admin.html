@@ -8,6 +8,11 @@
   <p id="err" class="muted" style="color:#ff9b9e;margin-top:12px"></p></section>
  <div id="panel" class="hidden" style="display:grid;gap:20px">
   <section id="rcard" class="card"><h2><span data-i18n="duoReqs"></span> <span id="rcount" class="count hidden"></span></h2><div id="reqs"></div></section>
+  <section id="acard" class="card"><h2 data-i18n="annAdminTitle"></h2>
+   <textarea id="anntxt" data-i18n-ph="annPh"></textarea>
+   <div class="opts"><label><input type="radio" name="aud" value="all" checked> <span data-i18n="annAll"></span></label><label><input type="radio" name="aud" value="confirmed"> <span data-i18n="annConfirmed"></span></label><label><input type="checkbox" id="annimp"> <span data-i18n="annImportant"></span></label></div>
+   <button class="btn" onclick="announce()" data-i18n="annSend"></button>
+   <h2 style="margin-top:18px" data-i18n="annSent"></h2><div id="annlist"></div></section>
   <section id="dcard" class="card"><h2 data-i18n="dispatchTitle"></h2>
    <p id="status" class="muted" style="margin-bottom:12px"></p>
    <div class="row"><input id="key" data-i18n-ph="keyPh"><button class="btn-green" onclick="start()" data-i18n="start"></button><button class="btn-red" onclick="stop()" data-i18n="stop"></button></div></section>
@@ -27,6 +32,11 @@ async function start(){const key=$('key').value.trim();if(!key)return alert(L('e
 async function stop(){await post('/api/admin/dispatch/stop');load();}
 async function reply(){const text=$('txt').value.trim();if(!sel||!text)return;$('txt').value='';await post('/api/admin/reply',{id:sel,text});load();}
 async function del(){if(sel&&confirm(L('confirmDel'))){await post('/api/admin/delete',{id:sel});sel=null;lastSig='';load();}}
+async function announce(){const text=$('anntxt').value.trim();if(!text)return;
+ await post('/api/admin/announce',{text,audience:document.querySelector('input[name=aud]:checked').value,important:$('annimp').checked});
+ $('anntxt').value='';$('annimp').checked=false;document.querySelector('input[value=all]').checked=true;annSig='';load();}
+async function delAnn(id){await post('/api/admin/announce/delete',{id});annSig='';load();}
+let annSig='';
 async function invite(){if(sel){await post('/api/admin/invite',{id:sel});load();}}
 async function duo(id,accept){await post('/api/admin/duo',{id,accept});load();}
 function beep(){try{const a=new (window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=880;g.gain.value=.15;o.start();o.stop(a.currentTime+.18);}catch{}}
@@ -43,6 +53,10 @@ function render(){
  $('dcard').classList.toggle('hidden',!me.lead);$('delbtn').classList.toggle('hidden',!me.lead);
  if(d) $('status').innerHTML=d.active?`<span class="dot on"></span>${L('active',{t:fmtTime(d.startedAt)})} <b style="color:#f5c518">${esc(d.key)}</b>`:`<span class="dot"></span>${L('inactive')}`;
  $('threads').innerHTML=S.threads.length?S.threads.map(x=>`<div class="thread ${x.id===sel?'sel':''}" onclick="pick('${x.id}')"><span>${uname(x.user)}${x.user.confirmed?' ✓':''}</span>${x.unread&&x.id!==sel?`<span class="count">${x.unread}</span>`:''}</div>`).join(''):`<p class="muted">${L('noMsg')}</p>`;
+ // Annonces
+ $('acard').classList.toggle('hidden',!me.lead);
+ const an=S.announcements||[], as=LANG+an.map(a=>a.id).join();
+ if(me.lead&&as!==annSig){annSig=as;$('annlist').innerHTML=an.length?an.map(a=>`<div class="ann ${a.important?'imp':''}" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div>${esc(a.text)}<small>${esc(a.by)} · ${fmtTime(a.at)} · ${a.audience==='all'?L('annAll'):L('annConfirmed')}</small></div><button class="btn-ghost" onclick="delAnn('${a.id}')">${L('annDel')}</button></div>`).join(''):`<p class="muted">${L('annNone')}</p>`;}
  // Demandes de duo
  $('rcard').classList.toggle('hidden',!me.lead);
  const pend=S.threads.filter(x=>x.duo&&x.duo.status==='pending'), done=S.threads.filter(x=>x.duo&&x.duo.status==='accepted');
@@ -73,6 +87,6 @@ async function load(){
  prevPending=S.me.lead?countPend(S):0;prevUnread=unread;
 }
 const countPend=S=>S.threads.filter(x=>x.duo&&x.duo.status==='pending').length;
-window.onLangChange=()=>{lastSig='';reqSig='';headSig='';render();};
+window.onLangChange=()=>{lastSig='';reqSig='';headSig='';annSig='';render();};
 load();setInterval(load,2000);
 </script></body></html>
