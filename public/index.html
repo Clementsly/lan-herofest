@@ -45,7 +45,8 @@ function render(){
  $('login').classList.add('hidden');$('support').classList.remove('hidden');
  $('who').innerHTML=`<div class="user">${u.avatar?`<img src="${u.avatar}" alt="">`:''}<b>${esc(u.name)}${u.guest?' ('+L('guest')+')':''}</b><span class="badge ${u.confirmed?'':'no'}">${u.confirmed?L('confirmedBadge'):L('supportOnly')}</span>${u.staff?`<a href="/admin"><button class="btn">${L('staffArea')}</button></a>`:''}<button class="btn-ghost" onclick="logout()">${L('logout')}</button></div>`;
  $('keycard').classList.toggle('hidden',!u.confirmed);$('noaccess').classList.toggle('hidden',u.confirmed||u.guest);
- $('joinhint').innerHTML=u.id[0]==='d'&&!u.inGuild?L('notInGuild'):'';
+ $('joinhint').innerHTML=u.id[0]==='d'&&!u.inGuild&&u.rolesKnown?L('notInGuild'):'';
+ $('noaccess').querySelector('[data-i18n]').innerHTML=u.id[0]==='d'&&!u.rolesKnown?L('checking'):L('limitedText');
  const ks=LANG+u.confirmed+S.dispatch.active+(S.dispatch.key||'');
  if(u.confirmed&&ks!==keySig){keySig=ks;$('keybox').innerHTML=S.dispatch.active
   ?`<p class="muted center" style="margin-bottom:10px"><span class="dot on"></span>${L('dispatchLive')}</p><div id="keyval" class="key masked">${MASK}</div>

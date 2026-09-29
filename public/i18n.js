@@ -1,5 +1,6 @@
 const I18N = {
  fr: {
+  checking:"Vérification de tes rôles Discord en cours…",
   haveCode:"Tu as reçu un code d'accès d'un admin ?",
   codePh:"Code d'accès",
   codeLogin:"Entrer",
@@ -46,6 +47,7 @@ const I18N = {
   active:'Dispatch ACTIF depuis {t} – clé visible par les Confirmed Players :', inactive:'Aucun dispatch en cours – la clé est masquée.', noMsg:'Aucun message.'
  },
  en: {
+  checking:"Checking your Discord roles…",
   haveCode:"Did an admin give you an access code?",
   codePh:"Access code",
   codeLogin:"Enter",
@@ -92,6 +94,7 @@ const I18N = {
   active:'Dispatch ACTIVE since {t} – key visible to Confirmed Players:', inactive:'No dispatch running – the key is hidden.', noMsg:'No messages.'
  },
  de: {
+  checking:"Deine Discord-Rollen werden überprüft…",
   haveCode:"Hast du von einem Admin einen Zugangscode bekommen?",
   codePh:"Zugangscode",
   codeLogin:"Weiter",
@@ -138,6 +141,7 @@ const I18N = {
   active:'Dispatch AKTIV seit {t} – Key sichtbar für Confirmed Players:', inactive:'Kein Dispatch aktiv – der Key ist verborgen.', noMsg:'Keine Nachrichten.'
  },
  it: {
+  checking:"Verifica dei tuoi ruoli Discord in corso…",
   haveCode:"Hai ricevuto un codice di accesso da un admin?",
   codePh:"Codice di accesso",
   codeLogin:"Entra",

@@ -36,7 +36,7 @@ let prevPending=null,prevUnread=null,reqSig='',headSig='';
 function pick(id){sel=id;lastSig='';post('/api/admin/read',{id});load();}
 function render(){
  if(!S){$('login').classList.remove('hidden');$('panel').classList.add('hidden');$('who').innerHTML='';
-  $('err').innerHTML=noRoleUser?`${L('noRole',{n:esc(noRoleUser.name)})} <a href="#" style="color:#f5c518" onclick="logout()">${L('switchAcc')}</a>`:(new URLSearchParams(location.search).get('err')?L('errLogin'):'');return;}
+  $('err').innerHTML=noRoleUser&&noRoleUser.id[0]==='d'&&!noRoleUser.rolesKnown?L('checking'):noRoleUser?`${L('noRole',{n:esc(noRoleUser.name)})} <a href="#" style="color:#f5c518" onclick="logout()">${L('switchAcc')}</a>`:(new URLSearchParams(location.search).get('err')?L('errLogin'):'');return;}
  $('login').classList.add('hidden');$('panel').classList.remove('hidden');
  const d=S.dispatch, me=S.me;
  $('who').innerHTML=`<div class="user">${me.avatar?`<img src="${me.avatar}" alt="">`:''}<b>${esc(me.name)}</b><span class="badge">${me.lead?'Lead Admin':'Staff'}</span><button class="btn-ghost" onclick="logout()">${L('logout')}</button></div>`;

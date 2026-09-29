@@ -29,34 +29,61 @@ app.use(cookieSession({ name: 'lan', keys: [SECRET], maxAge: 1000 * 60 * 60 * 24
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---------- Rôles Discord ----------
-function applyMember(u, m) {
-  u.inGuild = !!m;
-  const roles = (m && m.roles) || [];
+// Mode 1 (recommandé) : bot Discord → rôles mis à jour instantanément, sans limite de requêtes.
+// Mode 2 (secours) : vérification via le compte du joueur, toutes les 30 s, en respectant les limites Discord.
+let botGuild = null;
+if (E.DISCORD_BOT_TOKEN) {
+  const { Client, GatewayIntentBits } = require('discord.js');
+  const bot = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
+  bot.once('ready', async () => {
+    try { botGuild = await bot.guilds.fetch(GUILD); await botGuild.members.fetch();
+      console.log('[bot] connecté,', botGuild.members.cache.size, 'membres chargés'); }
+    catch (e) { console.error('[bot] impossible de charger le serveur :', e.message); botGuild = null; }
+  });
+  bot.on('guildMemberUpdate', (o, n) => console.log('[bot] rôles mis à jour pour', n.user.username));
+  bot.on('error', e => console.error('[bot]', e.message));
+  bot.login(E.DISCORD_BOT_TOKEN).catch(e => console.error('[bot] connexion refusée :', e.message));
+}
+function applyRoles(u, roles, inGuild, nick) {
+  u.inGuild = inGuild;
   u.confirmed = roles.includes(ROLE);
   u.lead = roles.includes(LEAD_ROLE);
   u.staff = u.lead || roles.includes(STAFF_ROLE);
-  if (m && m.nick) u.name = m.nick;
+  if (nick) u.name = nick;
+}
+function rolesFromBot(u) {
+  if (!botGuild) return false;
+  const m = botGuild.members.cache.get(u.id.slice(1));
+  applyRoles(u, m ? [...m.roles.cache.keys()] : [], !!m, m && m.nickname);
+  return true;
 }
 async function fetchMember(token) {
   const r = await fetch(`https://discord.com/api/users/@me/guilds/${GUILD}/member`, { headers: { Authorization: 'Bearer ' + token } });
-  if (r.status === 404 || r.status === 403) return { m: null };
-  if (!r.ok) return { skip: true }; // 429 / 401 / erreur : on garde l'état actuel
-  return { m: await r.json() };
+  if (r.status === 404 || r.status === 403) return { m: null, status: r.status };
+  if (r.status === 429) { let ra = 30; try { ra = (await r.json()).retry_after || ra; } catch {} return { skip: true, status: 429, retryAfter: ra }; }
+  if (!r.ok) return { skip: true, status: r.status };
+  return { m: await r.json(), status: 200 };
 }
-// Rafraîchit automatiquement les rôles (plus besoin de se reconnecter / F5)
 async function refreshUser(req, res, next) {
   const u = req.session.user;
   if (u) {
-    if (u.id[0] === 'd' && req.session.tok && Date.now() - (u.checkedAt || 0) > ROLE_REFRESH_MS) {
-      u.checkedAt = Date.now();
-      try { const r = await fetchMember(req.session.tok); if (!r.skip) applyMember(u, r.m); } catch {}
-      req.session.user = { ...u };
+    const before = JSON.stringify([u.confirmed, u.lead, u.staff, u.inGuild, u.name, u.rolesKnown]);
+    if (u.id[0] === 'd') {
+      if (rolesFromBot(u)) u.rolesKnown = true;
+      else if (req.session.tok && Date.now() >= (u.nextCheck || 0)) {
+        u.nextCheck = Date.now() + 30000;
+        try {
+          const r = await fetchMember(req.session.tok);
+          if (!r.skip) { applyRoles(u, r.m ? r.m.roles : [], !!r.m, r.m && r.m.nick); u.rolesKnown = true; }
+          else { if (r.retryAfter) u.nextCheck = Date.now() + Math.max(5, r.retryAfter) * 1000; console.log('[roles]', u.name, 'Discord', r.status, '→ nouvel essai plus tard'); }
+        } catch (e) { console.error('[roles]', e.message); }
+      }
     }
     if (u.id[0] === 'g') { // invité : accès donné par un admin (duo accepté)
       const t = db.threads[u.id];
-      const ok = u.code || !!(t && t.duo && t.duo.status === 'accepted');
-      if (ok !== u.confirmed) { u.confirmed = ok; req.session.user = { ...u }; }
+      u.confirmed = !!(u.code || (t && t.duo && t.duo.status === 'accepted'));
     }
+    if (JSON.stringify([u.confirmed, u.lead, u.staff, u.inGuild, u.name, u.rolesKnown]) !== before || u.id[0] === 'd') req.session.user = { ...u };
   }
   next();
 }
@@ -79,10 +106,16 @@ app.get('/auth/callback', async (req, res) => {
         code: req.query.code, redirect_uri: REDIRECT }) })).json();
     if (!tok.access_token) return res.redirect(back + '?err=token');
     const u = await (await fetch('https://discord.com/api/users/@me', { headers: { Authorization: 'Bearer ' + tok.access_token } })).json();
-    const r = await fetchMember(tok.access_token);
     const user = { id: 'd' + u.id, name: u.global_name || u.username,
-      avatar: u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=64` : null, checkedAt: Date.now() };
-    applyMember(user, r.m || null);
+      avatar: u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=64` : null,
+      confirmed: false, lead: false, staff: false, inGuild: false, rolesKnown: false, nextCheck: Date.now() + 30000 };
+    if (rolesFromBot(user)) user.rolesKnown = true;
+    else {
+      const r = await fetchMember(tok.access_token);
+      if (!r.skip) { applyRoles(user, r.m ? r.m.roles : [], !!r.m, r.m && r.m.nick); user.rolesKnown = true; }
+      else { user.nextCheck = Date.now() + Math.max(5, r.retryAfter || 10) * 1000; console.log('[roles] connexion', user.name, 'Discord', r.status); }
+    }
+    console.log('[login]', user.name, JSON.stringify({ known: user.rolesKnown, confirmed: user.confirmed, lead: user.lead, staff: user.staff, inGuild: user.inGuild }));
     req.session.user = user; req.session.tok = tok.access_token; req.session.state = null;
     res.redirect(back);
   } catch (e) { console.error(e); res.redirect(back + '?err=discord'); }
