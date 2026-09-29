@@ -8,7 +8,8 @@ const E = process.env;
 const CLIENT_ID = E.DISCORD_CLIENT_ID, CLIENT_SECRET = E.DISCORD_CLIENT_SECRET, REDIRECT = E.DISCORD_REDIRECT_URI;
 const GUILD = E.DISCORD_GUILD_ID || '1554076915663380520';
 const ROLE = E.DISCORD_ROLE_ID || '1554077319004557372';
-const ADMIN_PW = E.ADMIN_PASSWORD || 'admin';
+const LEAD_ROLE = E.DISCORD_LEAD_ROLE_ID || '1554077271898456134';
+const STAFF_ROLE = E.DISCORD_STAFF_ROLE_ID || '1554185110926925844';
 const DATA = path.join(__dirname, 'data.json');
 
 let db = { dispatch: { active: false, key: '', startedAt: null }, threads: {} };
@@ -25,27 +26,29 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ---------- Discord OAuth ----------
 app.get('/auth/discord', (req, res) => {
   const state = crypto.randomBytes(12).toString('hex'); req.session.state = state;
+  req.session.returnTo = req.query.admin ? '/admin' : '/';
   const p = new URLSearchParams({ client_id: CLIENT_ID, redirect_uri: REDIRECT, response_type: 'code',
     scope: 'identify guilds.members.read', state, prompt: 'none' });
   res.redirect('https://discord.com/oauth2/authorize?' + p);
 });
 app.get('/auth/callback', async (req, res) => {
   try {
-    if (!req.query.code || req.query.state !== req.session.state) return res.redirect('/?err=auth');
+    if (!req.query.code || req.query.state !== req.session.state) return res.redirect((req.session.returnTo||'/')+'?err=auth');
     const tok = await (await fetch('https://discord.com/api/oauth2/token', { method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET, grant_type: 'authorization_code',
         code: req.query.code, redirect_uri: REDIRECT }) })).json();
-    if (!tok.access_token) return res.redirect('/?err=token');
+    if (!tok.access_token) return res.redirect((req.session.returnTo||'/')+'?err=token');
     const h = { Authorization: 'Bearer ' + tok.access_token };
     const u = await (await fetch('https://discord.com/api/users/@me', { headers: h })).json();
     const mr = await fetch(`https://discord.com/api/users/@me/guilds/${GUILD}/member`, { headers: h });
     const m = mr.ok ? await mr.json() : null;
     req.session.user = { id: 'd' + u.id, name: (m && m.nick) || u.global_name || u.username,
       avatar: u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=64` : null,
-      inGuild: !!m, confirmed: !!(m && m.roles.includes(ROLE)) };
-    res.redirect('/');
-  } catch (e) { console.error(e); res.redirect('/?err=discord'); }
+      inGuild: !!m, confirmed: !!(m && m.roles.includes(ROLE)),
+      lead: !!(m && m.roles.includes(LEAD_ROLE)), staff: !!(m && (m.roles.includes(STAFF_ROLE) || m.roles.includes(LEAD_ROLE))) };
+    res.redirect(req.session.returnTo || '/');
+  } catch (e) { console.error(e); res.redirect((req.session.returnTo||'/')+'?err=discord'); }
 });
 app.post('/auth/guest', (req, res) => {
   const name = String(req.body.name || '').trim().slice(0, 32);
@@ -75,35 +78,31 @@ app.post('/api/message', needUser, (req, res) => {
 });
 
 // ---------- Admin ----------
-const needAdmin = (req, res, next) => req.session.admin ? next() : res.status(401).json({ error: 'Admin requis' });
-app.post('/admin/login', (req, res) => {
-  const a = Buffer.from(String(req.body.password || '')), b = Buffer.from(ADMIN_PW);
-  if (a.length === b.length && crypto.timingSafeEqual(a, b)) { req.session.admin = true; return res.json({ ok: true }); }
-  res.status(403).json({ error: 'Mot de passe incorrect' });
-});
-app.post('/admin/logout', (req, res) => { req.session.admin = false; res.json({ ok: true }); });
+const needAdmin = (req, res, next) => req.session.user && req.session.user.staff ? next() : res.status(401).json({ error: 'Staff requis', user: req.session.user || null });
+const needLead = (req, res, next) => req.session.user && req.session.user.lead ? next() : res.status(403).json({ error: 'Lead Admin requis' });
 app.get('/api/admin/state', needAdmin, (req, res) => {
   const threads = Object.entries(db.threads).map(([id, t]) => ({ id, user: t.user, messages: t.messages,
     unread: t.unreadAdmin, last: t.last })).sort((a, b) => b.last - a.last);
-  res.json({ dispatch: db.dispatch, threads });
+  const u = req.session.user;
+  res.json({ me: u, dispatch: u.lead ? db.dispatch : null, threads });
 });
-app.post('/api/admin/dispatch/start', needAdmin, (req, res) => {
+app.post('/api/admin/dispatch/start', needAdmin, needLead, (req, res) => {
   const key = String(req.body.key || '').trim().slice(0, 64);
   if (!key) return res.status(400).json({ error: 'Clé requise' });
   db.dispatch = { active: true, key, startedAt: Date.now() }; save(); res.json({ ok: true });
 });
-app.post('/api/admin/dispatch/stop', needAdmin, (req, res) => {
+app.post('/api/admin/dispatch/stop', needAdmin, needLead, (req, res) => {
   db.dispatch = { active: false, key: '', startedAt: null }; save(); res.json({ ok: true });
 });
 app.post('/api/admin/reply', needAdmin, (req, res) => {
   const t = db.threads[req.body.id], text = String(req.body.text || '').trim().slice(0, 1000);
   if (!t || !text) return res.status(400).json({ error: 'Invalide' });
-  t.messages.push({ from: 'admin', text, at: Date.now() }); t.unreadUser++; t.last = Date.now(); save(); res.json({ ok: true });
+  t.messages.push({ from: 'admin', by: req.session.user.name, text, at: Date.now() }); t.unreadUser++; t.last = Date.now(); save(); res.json({ ok: true });
 });
 app.post('/api/admin/read', needAdmin, (req, res) => {
   const t = db.threads[req.body.id]; if (t) { t.unreadAdmin = 0; save(); } res.json({ ok: true });
 });
-app.post('/api/admin/delete', needAdmin, (req, res) => { delete db.threads[req.body.id]; save(); res.json({ ok: true }); });
+app.post('/api/admin/delete', needAdmin, needLead, (req, res) => { delete db.threads[req.body.id]; save(); res.json({ ok: true }); });
 
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.listen(E.PORT || 3000, () => console.log('LAN Fortnite en ligne sur le port', E.PORT || 3000));

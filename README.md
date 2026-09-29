@@ -1,7 +1,7 @@
 # Site LAN HeroFest Fortnite 2026
 
 - `/` : page joueurs (connexion Discord → clé si rôle « Confirmed Players », sinon support uniquement ; bouton invité sans Discord pour le support).
-- `/admin` : ton panneau (START / STOP LE DISPATCH + messagerie avec tous les joueurs).
+- `/admin` : espace staff via Discord. Rôle « Lead Admin » : START / STOP LE DISPATCH + messagerie. Rôle « Staff » : messagerie uniquement.
 
 ## 1. Créer l'application Discord (5 min)
 1. Va sur https://discord.com/developers/applications → **New Application** (ex. « HeroFest LAN »).
@@ -18,7 +18,6 @@
    - `DISCORD_REDIRECT_URI` = `https://<ton-adresse>.onrender.com/auth/callback`
    - `DISCORD_GUILD_ID` = `1554076915663380520` (valeur par défaut)
    - `DISCORD_ROLE_ID` = `1554077319004557372` (valeur par défaut)
-   - `ADMIN_PASSWORD` = ton mot de passe admin
    - `SESSION_SECRET` = une longue phrase au hasard
 5. Déploie, puis recopie l'adresse exacte dans les Redirects Discord.
 
@@ -30,7 +29,7 @@
 ## Tester en local
 ```
 npm install
-ADMIN_PASSWORD=test node server.js
+node server.js
 ```
 Puis http://localhost:3000 et http://localhost:3000/admin.
 

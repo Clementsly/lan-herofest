@@ -32,14 +32,14 @@ async function load(){
  const r=await fetch('/api/state'); if(r.status===401){$('login').classList.remove('hidden');['keycard','noaccess','support'].forEach(i=>$(i).classList.add('hidden'));$('who').innerHTML='';return;}
  const s=await r.json(), u=s.user;
  $('login').classList.add('hidden');$('support').classList.remove('hidden');
- $('who').innerHTML=`<div class="user">${u.avatar?`<img src="${u.avatar}">`:''}<b>${esc(u.name)}</b><span class="badge ${u.confirmed?'':'no'}">${u.confirmed?'Confirmed Player':'Support uniquement'}</span><button class="btn-ghost" onclick="logout()">Déconnexion</button></div>`;
+ $('who').innerHTML=`<div class="user">${u.avatar?`<img src="${u.avatar}">`:''}<b>${esc(u.name)}</b><span class="badge ${u.confirmed?'':'no'}">${u.confirmed?'Confirmed Player':'Support uniquement'}</span>${u.staff?'<a href="/admin"><button class="btn">Espace staff</button></a>':''}<button class="btn-ghost" onclick="logout()">Déconnexion</button></div>`;
  $('keycard').classList.toggle('hidden',!u.confirmed);$('noaccess').classList.toggle('hidden',u.confirmed);
  $('joinhint').innerHTML=u.id[0]==='d'&&!u.inGuild?'Tu n\'es pas encore sur le serveur : <a style="color:#f5c518" href="https://discord.gg/GFxcHp9aRq" target="_blank">rejoindre le Discord</a>.':'';
  if(u.confirmed) $('keybox').innerHTML=s.dispatch.active
   ?`<p class="muted center" style="margin-bottom:10px"><span class="dot on"></span>Dispatch en cours – entre cette clé dans Fortnite</p><div class="key">${esc(s.dispatch.key)}</div><div class="center" style="margin-top:12px"><button class="btn" onclick="navigator.clipboard.writeText('${esc(s.dispatch.key).replace(/'/g,"\\'")}');this.textContent='Copiée'">Copier la clé</button></div>`
   :`<div class="wait"><span class="dot"></span>Aucune clé pour le moment. Reste sur cette page, elle apparaîtra automatiquement.</div>`;
  const c=$('chat'); if(s.messages.length!==lastLen){lastLen=s.messages.length;
-  c.innerHTML=s.messages.length?s.messages.map(m=>`<div class="msg ${m.from==='user'?'me':'them'}">${esc(m.text)}<small>${m.from==='admin'?'Admin · ':''}${t(m.at)}</small></div>`).join(''):'<p class="muted center">Un problème ? Écris ici, un admin te répondra.</p>';
+  c.innerHTML=s.messages.length?s.messages.map(m=>`<div class="msg ${m.from==='user'?'me':'them'}">${esc(m.text)}<small>${m.from==='admin'?'Admin'+(m.by?' ('+esc(m.by)+')':'')+' · ':''}${t(m.at)}</small></div>`).join(''):'<p class="muted center">Un problème ? Écris ici, un admin te répondra.</p>';
   c.scrollTop=c.scrollHeight;}
 }
 load();setInterval(load,2000);
