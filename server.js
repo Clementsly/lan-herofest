@@ -53,7 +53,7 @@ app.get('/auth/callback', async (req, res) => {
 app.post('/auth/guest', (req, res) => {
   const name = String(req.body.name || '').trim().slice(0, 32);
   if (!name) return res.status(400).json({ error: 'Pseudo requis' });
-  req.session.user = { id: 'g' + crypto.randomBytes(6).toString('hex'), name: name + ' (invité)', avatar: null, inGuild: false, confirmed: false };
+  req.session.user = { id: 'g' + crypto.randomBytes(6).toString('hex'), name, guest: true, avatar: null, inGuild: false, confirmed: false };
   res.json({ ok: true });
 });
 app.post('/auth/logout', (req, res) => { delete req.session.user; res.json({ ok: true }); });

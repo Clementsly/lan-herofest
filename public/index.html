@@ -1,46 +1,48 @@
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>HeroFest Fortnite 2026 – LAN</title><link rel="stylesheet" href="/style.css"></head><body>
-<header><h1>HEROFEST <span>FORTNITE</span> 2026</h1><div id="who"></div></header>
+<title>HeroFest Fortnite 2026 – LAN</title><link rel="stylesheet" href="/style.css"><script src="/i18n.js"></script></head><body>
+<header><h1>HEROFEST <span>FORTNITE</span> 2026</h1><div class="hdr-r"><div id="who"></div><div id="lang"></div></div></header>
 <main>
  <section id="login" class="card center hidden">
-  <h2>Bienvenue sur la LAN</h2>
-  <p class="muted" style="margin-bottom:16px">Connecte-toi avec Discord pour accéder à la clé de partie (rôle « Confirmed Players » requis).</p>
-  <a href="/auth/discord"><button class="btn-discord">Se connecter avec Discord</button></a>
-  <p class="muted" style="margin:22px 0 10px">Pas de compte Discord ? Contacte simplement un admin :</p>
-  <div class="row" style="max-width:420px;margin:auto"><input id="gname" placeholder="Ton pseudo"><button class="btn-ghost" onclick="guest()">Support</button></div>
+  <h2 data-i18n="welcome"></h2>
+  <p class="muted" style="margin-bottom:16px" data-i18n="loginIntro"></p>
+  <a href="/auth/discord"><button class="btn-discord" data-i18n="discordLogin"></button></a>
+  <p class="muted" style="margin:22px 0 10px" data-i18n="noDiscord"></p>
+  <div class="row" style="max-width:420px;margin:auto"><input id="gname" data-i18n-ph="nickname"><button class="btn-ghost" onclick="guest()" data-i18n="support"></button></div>
   <p id="err" class="muted" style="color:#ff9b9e;margin-top:10px"></p>
  </section>
- <section id="keycard" class="card hidden"><h2>Clé de partie personnalisée</h2><div id="keybox"></div></section>
- <section id="noaccess" class="card hidden"><h2>Accès limité</h2>
-  <p class="muted">Tu n'as pas le rôle <b>Confirmed Players</b>. Tu as accès uniquement au support admin. <span id="joinhint"></span></p></section>
- <section id="support" class="card hidden"><h2>Support admin</h2>
+ <section id="keycard" class="card hidden"><h2 data-i18n="keyTitle"></h2><div id="keybox"></div></section>
+ <section id="noaccess" class="card hidden"><h2 data-i18n="limited"></h2>
+  <p class="muted"><span data-i18n="limitedText"></span> <span id="joinhint"></span></p></section>
+ <section id="support" class="card hidden"><h2 data-i18n="supportTitle"></h2>
   <div id="chat" class="chat"></div>
-  <div class="row"><input id="txt" placeholder="Écris ton message aux admins…" onkeydown="if(event.key==='Enter')send()"><button class="btn" onclick="send()">Envoyer</button></div>
+  <div class="row"><input id="txt" data-i18n-ph="msgPh" onkeydown="if(event.key==='Enter')send()"><button class="btn" onclick="send()" data-i18n="send"></button></div>
  </section>
 </main>
 <script>
-const $=id=>document.getElementById(id), esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const t=ts=>new Date(ts).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-let lastLen=-1;
-const errs={auth:'Connexion annulée.',token:'Erreur Discord, réessaie.',discord:'Erreur Discord, réessaie.'};
-const e=new URLSearchParams(location.search).get('err'); if(e) $('err').textContent=errs[e]||'Erreur';
+const $=id=>document.getElementById(id), esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let lastSig='', S=null;
+const errKey={auth:'errAuth',token:'errDiscord',discord:'errDiscord'}, qerr=new URLSearchParams(location.search).get('err');
 async function guest(){const r=await fetch('/auth/guest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('gname').value})});if(r.ok)load();}
 async function logout(){await fetch('/auth/logout',{method:'POST'});location.href='/';}
 async function send(){const text=$('txt').value.trim();if(!text)return;$('txt').value='';
  await fetch('/api/message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});load();}
-async function load(){
- const r=await fetch('/api/state'); if(r.status===401){$('login').classList.remove('hidden');['keycard','noaccess','support'].forEach(i=>$(i).classList.add('hidden'));$('who').innerHTML='';return;}
- const s=await r.json(), u=s.user;
+function copyKey(b){navigator.clipboard.writeText(S.dispatch.key);b.textContent=L('copied');}
+function render(){
+ if(!S){$('login').classList.remove('hidden');['keycard','noaccess','support'].forEach(i=>$(i).classList.add('hidden'));$('who').innerHTML='';
+  $('err').textContent=qerr?L(errKey[qerr]||'errDiscord'):'';return;}
+ const u=S.user;
  $('login').classList.add('hidden');$('support').classList.remove('hidden');
- $('who').innerHTML=`<div class="user">${u.avatar?`<img src="${u.avatar}">`:''}<b>${esc(u.name)}</b><span class="badge ${u.confirmed?'':'no'}">${u.confirmed?'Confirmed Player':'Support uniquement'}</span>${u.staff?'<a href="/admin"><button class="btn">Espace staff</button></a>':''}<button class="btn-ghost" onclick="logout()">Déconnexion</button></div>`;
+ $('who').innerHTML=`<div class="user">${u.avatar?`<img src="${u.avatar}" alt="">`:''}<b>${esc(u.name)}${u.guest?' ('+L('guest')+')':''}</b><span class="badge ${u.confirmed?'':'no'}">${u.confirmed?L('confirmedBadge'):L('supportOnly')}</span>${u.staff?`<a href="/admin"><button class="btn">${L('staffArea')}</button></a>`:''}<button class="btn-ghost" onclick="logout()">${L('logout')}</button></div>`;
  $('keycard').classList.toggle('hidden',!u.confirmed);$('noaccess').classList.toggle('hidden',u.confirmed);
- $('joinhint').innerHTML=u.id[0]==='d'&&!u.inGuild?'Tu n\'es pas encore sur le serveur : <a style="color:#f5c518" href="https://discord.gg/GFxcHp9aRq" target="_blank">rejoindre le Discord</a>.':'';
- if(u.confirmed) $('keybox').innerHTML=s.dispatch.active
-  ?`<p class="muted center" style="margin-bottom:10px"><span class="dot on"></span>Dispatch en cours – entre cette clé dans Fortnite</p><div class="key">${esc(s.dispatch.key)}</div><div class="center" style="margin-top:12px"><button class="btn" onclick="navigator.clipboard.writeText('${esc(s.dispatch.key).replace(/'/g,"\\'")}');this.textContent='Copiée'">Copier la clé</button></div>`
-  :`<div class="wait"><span class="dot"></span>Aucune clé pour le moment. Reste sur cette page, elle apparaîtra automatiquement.</div>`;
- const c=$('chat'); if(s.messages.length!==lastLen){lastLen=s.messages.length;
-  c.innerHTML=s.messages.length?s.messages.map(m=>`<div class="msg ${m.from==='user'?'me':'them'}">${esc(m.text)}<small>${m.from==='admin'?'Admin'+(m.by?' ('+esc(m.by)+')':'')+' · ':''}${t(m.at)}</small></div>`).join(''):'<p class="muted center">Un problème ? Écris ici, un admin te répondra.</p>';
+ $('joinhint').innerHTML=u.id[0]==='d'&&!u.inGuild?L('notInGuild'):'';
+ if(u.confirmed) $('keybox').innerHTML=S.dispatch.active
+  ?`<p class="muted center" style="margin-bottom:10px"><span class="dot on"></span>${L('dispatchLive')}</p><div class="key">${esc(S.dispatch.key)}</div><div class="center" style="margin-top:12px"><button class="btn" onclick="copyKey(this)">${L('copyKey')}</button></div>`
+  :`<div class="wait"><span class="dot"></span>${L('noKey')}</div>`;
+ const sig=LANG+S.messages.length; if(sig!==lastSig){lastSig=sig;const c=$('chat');
+  c.innerHTML=S.messages.length?S.messages.map(m=>`<div class="msg ${m.from==='user'?'me':'them'}">${esc(m.text)}<small>${m.from==='admin'?L('admin')+(m.by?' ('+esc(m.by)+')':'')+' · ':''}${fmtTime(m.at)}</small></div>`).join(''):`<p class="muted center">${L('emptyChat')}</p>`;
   c.scrollTop=c.scrollHeight;}
 }
+async function load(){const r=await fetch('/api/state');S=r.status===401?null:await r.json();render();}
+window.onLangChange=()=>{lastSig='';render();};
 load();setInterval(load,2000);
 </script></body></html>

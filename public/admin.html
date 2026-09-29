@@ -1,49 +1,55 @@
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Admin – HeroFest LAN</title><link rel="stylesheet" href="/style.css"></head><body>
-<header><h1>HEROFEST <span>ADMIN</span></h1><div id="who"></div></header>
+<title>Admin – HeroFest LAN</title><link rel="stylesheet" href="/style.css"><script src="/i18n.js"></script></head><body>
+<header><h1>HEROFEST <span>ADMIN</span></h1><div class="hdr-r"><div id="who"></div><div id="lang"></div></div></header>
 <main>
- <section id="login" class="card center hidden"><h2>Espace staff</h2>
-  <p class="muted" style="margin-bottom:16px">Connecte-toi avec Discord. Rôle « Lead Admin » : accès complet. Rôle « Staff » : support uniquement.</p>
-  <a href="/auth/discord?admin=1"><button class="btn-discord">Se connecter avec Discord</button></a>
+ <section id="login" class="card center hidden"><h2 data-i18n="staffArea"></h2>
+  <p class="muted" style="margin-bottom:16px" data-i18n="staffIntro"></p>
+  <a href="/auth/discord?admin=1"><button class="btn-discord" data-i18n="discordLogin"></button></a>
   <p id="err" class="muted" style="color:#ff9b9e;margin-top:12px"></p></section>
  <div id="panel" class="hidden" style="display:grid;gap:20px">
-  <section id="dcard" class="card"><h2>Dispatch de la clé</h2>
+  <section id="dcard" class="card"><h2 data-i18n="dispatchTitle"></h2>
    <p id="status" class="muted" style="margin-bottom:12px"></p>
-   <div class="row"><input id="key" placeholder="Clé de partie personnalisée"><button class="btn-green" onclick="start()">START LE DISPATCH</button><button class="btn-red" onclick="stop()">STOP LE DISPATCH</button></div></section>
-  <section class="card"><h2>Messages joueurs</h2>
+   <div class="row"><input id="key" data-i18n-ph="keyPh"><button class="btn-green" onclick="start()" data-i18n="start"></button><button class="btn-red" onclick="stop()" data-i18n="stop"></button></div></section>
+  <section class="card"><h2 data-i18n="playerMsgs"></h2>
    <div class="grid2"><div id="threads"></div>
-    <div><div id="chat" class="chat"><p class="muted center">Sélectionne une conversation.</p></div>
-     <div class="row"><input id="txt" placeholder="Réponse…" onkeydown="if(event.key==='Enter')reply()"><button class="btn" onclick="reply()">Envoyer</button><button id="delbtn" class="btn-ghost" title="Supprimer la conversation" onclick="del()">Suppr.</button></div></div></div></section>
+    <div><div id="chat" class="chat"></div>
+     <div class="row"><input id="txt" data-i18n-ph="replyPh" onkeydown="if(event.key==='Enter')reply()"><button class="btn" onclick="reply()" data-i18n="send"></button><button id="delbtn" class="btn-ghost" data-i18n-title="delTitle" onclick="del()" data-i18n="del"></button></div></div></div></section>
  </div>
 </main>
 <script>
-const $=id=>document.getElementById(id), esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const t=ts=>new Date(ts).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+const $=id=>document.getElementById(id), esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const post=(u,b)=>fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})});
-let sel=null, lastSig='', unreadTotal=0;
+let sel=null, lastSig='', unreadTotal=0, S=null, noRoleUser=null;
+const uname=u=>esc(u.name)+(u.guest?' ('+L('guest')+')':'');
 async function logout(){await post('/auth/logout');location.href='/admin';}
-async function start(){const key=$('key').value.trim();if(!key)return alert('Entre une clé');await post('/api/admin/dispatch/start',{key});load();}
+async function start(){const key=$('key').value.trim();if(!key)return alert(L('enterKey'));await post('/api/admin/dispatch/start',{key});load();}
 async function stop(){await post('/api/admin/dispatch/stop');load();}
 async function reply(){const text=$('txt').value.trim();if(!sel||!text)return;$('txt').value='';await post('/api/admin/reply',{id:sel,text});load();}
-async function del(){if(sel&&confirm('Supprimer cette conversation ?')){await post('/api/admin/delete',{id:sel});sel=null;lastSig='';load();}}
+async function del(){if(sel&&confirm(L('confirmDel'))){await post('/api/admin/delete',{id:sel});sel=null;lastSig='';load();}}
 function pick(id){sel=id;lastSig='';post('/api/admin/read',{id});load();}
-async function load(){
- const r=await fetch('/api/admin/state'); if(r.status===401){const j=await r.json();$('login').classList.remove('hidden');$('panel').classList.add('hidden');
-  if(j.user){$('err').innerHTML=`Connecté en tant que <b>${esc(j.user.name)}</b>, mais tu n'as ni le rôle Lead Admin ni le rôle Staff. <a href="#" style="color:#f5c518" onclick="logout()">Changer de compte</a>`;}
-  else if(new URLSearchParams(location.search).get('err')) $('err').textContent='Erreur de connexion Discord, réessaie.';return;}
+function render(){
+ if(!S){$('login').classList.remove('hidden');$('panel').classList.add('hidden');$('who').innerHTML='';
+  $('err').innerHTML=noRoleUser?`${L('noRole',{n:esc(noRoleUser.name)})} <a href="#" style="color:#f5c518" onclick="logout()">${L('switchAcc')}</a>`:(new URLSearchParams(location.search).get('err')?L('errLogin'):'');return;}
  $('login').classList.add('hidden');$('panel').classList.remove('hidden');
- const s=await r.json(), d=s.dispatch, me=s.me;
- $('who').innerHTML=`<div class="user">${me.avatar?`<img src="${me.avatar}">`:''}<b>${esc(me.name)}</b><span class="badge">${me.lead?'Lead Admin':'Staff'}</span><button class="btn-ghost" onclick="logout()">Déconnexion</button></div>`;
+ const d=S.dispatch, me=S.me;
+ $('who').innerHTML=`<div class="user">${me.avatar?`<img src="${me.avatar}" alt="">`:''}<b>${esc(me.name)}</b><span class="badge">${me.lead?'Lead Admin':'Staff'}</span><button class="btn-ghost" onclick="logout()">${L('logout')}</button></div>`;
  $('dcard').classList.toggle('hidden',!me.lead);$('delbtn').classList.toggle('hidden',!me.lead);
- if(d) $('status').innerHTML=d.active?`<span class="dot on"></span>Dispatch ACTIF depuis ${t(d.startedAt)} – clé visible par les Confirmed Players : <b style="color:#f5c518">${esc(d.key)}</b>`:'<span class="dot"></span>Aucun dispatch en cours – la clé est masquée.';
- const unread=s.threads.reduce((a,x)=>a+(x.id===sel?0:x.unread),0);
- if(unread>unreadTotal) try{new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=').play()}catch{}
- unreadTotal=unread; document.title=(unread?`(${unread}) `:'')+'Admin – HeroFest LAN';
- $('threads').innerHTML=s.threads.length?s.threads.map(x=>`<div class="thread ${x.id===sel?'sel':''}" onclick="pick('${x.id}')"><span>${esc(x.user.name)}${x.user.confirmed?' ✓':''}</span>${x.unread&&x.id!==sel?`<span class="count">${x.unread}</span>`:''}</div>`).join(''):'<p class="muted">Aucun message.</p>';
- const th=s.threads.find(x=>x.id===sel);
- if(th){ if(th.unread) post('/api/admin/read',{id:sel});
-  const sig=sel+th.messages.length; if(sig!==lastSig){lastSig=sig;const c=$('chat');
-  c.innerHTML=th.messages.map(m=>`<div class="msg ${m.from==='admin'?'me':'them'}">${esc(m.text)}<small>${m.from==='user'?esc(th.user.name)+' · ':(m.by?esc(m.by)+' · ':'')}${t(m.at)}</small></div>`).join('');c.scrollTop=c.scrollHeight;}}
+ if(d) $('status').innerHTML=d.active?`<span class="dot on"></span>${L('active',{t:fmtTime(d.startedAt)})} <b style="color:#f5c518">${esc(d.key)}</b>`:`<span class="dot"></span>${L('inactive')}`;
+ $('threads').innerHTML=S.threads.length?S.threads.map(x=>`<div class="thread ${x.id===sel?'sel':''}" onclick="pick('${x.id}')"><span>${uname(x.user)}${x.user.confirmed?' ✓':''}</span>${x.unread&&x.id!==sel?`<span class="count">${x.unread}</span>`:''}</div>`).join(''):`<p class="muted">${L('noMsg')}</p>`;
+ const th=S.threads.find(x=>x.id===sel), c=$('chat');
+ if(!th){if(lastSig!==LANG){lastSig=LANG;c.innerHTML=`<p class="muted center">${L('pickThread')}</p>`;}return;}
+ const sig=LANG+sel+th.messages.length; if(sig!==lastSig){lastSig=sig;
+  c.innerHTML=th.messages.map(m=>`<div class="msg ${m.from==='admin'?'me':'them'}">${esc(m.text)}<small>${m.from==='user'?uname(th.user)+' · ':(m.by?esc(m.by)+' · ':'')}${fmtTime(m.at)}</small></div>`).join('');c.scrollTop=c.scrollHeight;}
 }
+async function load(){
+ const r=await fetch('/api/admin/state');
+ if(r.status===401){const j=await r.json();S=null;noRoleUser=j.user;render();return;}
+ S=await r.json();
+ const th=S.threads.find(x=>x.id===sel); if(th&&th.unread) post('/api/admin/read',{id:sel});
+ const unread=S.threads.reduce((a,x)=>a+(x.id===sel?0:x.unread),0);
+ unreadTotal=unread; document.title=(unread?`(${unread}) `:'')+'Admin – HeroFest LAN';
+ render();
+}
+window.onLangChange=()=>{lastSig='';render();};
 load();setInterval(load,2000);
 </script></body></html>

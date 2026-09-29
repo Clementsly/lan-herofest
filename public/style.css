@@ -23,3 +23,7 @@ input,textarea{font:inherit;width:100%;padding:10px 12px;border-radius:10px;bord
 .grid2{display:grid;grid-template-columns:260px 1fr;gap:16px}@media(max-width:700px){.grid2{grid-template-columns:1fr}}
 .thread{padding:10px;border-radius:10px;cursor:pointer;display:flex;justify-content:space-between;gap:6px}
 .thread:hover,.thread.sel{background:#ffffff1a}.count{background:#e5484d;border-radius:20px;padding:0 8px;font-size:12px}
+.hdr-r{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:flex-end}
+#lang{display:flex;gap:4px}#lang button{padding:6px 9px;font-size:12px;background:#ffffff14;color:#cfd6ff;border-radius:8px}
+#lang button.on{background:#f5c518;color:#111}
+@media(max-width:600px){header{flex-direction:column;gap:10px}}
